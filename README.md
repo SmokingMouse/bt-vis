@@ -1,36 +1,123 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# bt-vis
 
-## Getting Started
+> Interactive visualization of the BitTorrent protocol — from cold start to seeder.
 
-First, run the development server:
+A deterministic browser-side simulation of BT's core mechanisms: handshake, bitfield exchange, rarest-first piece selection, tit-for-tat choking, and seeder transitions. Built as a portfolio piece to make a complex distributed protocol legible at a glance.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+## Demo
+
+🌐 **Live**: _(link here once deployed)_
+
+## What it shows
+
+Six scenes, each focused on one mechanism:
+
+1. **Discovery** — peers join the swarm and open physical connections
+2. **Handshake** — handshake → bitfield → interested/not_interested exchange
+3. **Selection** — rarest-first piece selection (3 peers with non-uniform bitfields)
+4. **Choking** — tit-for-tat reciprocation + optimistic unchoke (5 leechers, 1 seeder)
+5. **Seeding** — leecher completes its download and starts contributing back
+6. **Full Flow** — the entire cold start from 0 to all-seeders, end to end
+
+Drag the timeline to inspect any frame. Click a node to see that peer's bitfield, connection states, and per-connection download tally.
+
+## Architecture
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                       Next.js app                       │
+│  ┌────────────────────────┐  ┌────────────────────────┐ │
+│  │   src/ui/components/   │  │     src/app/page.tsx   │ │
+│  │   NetworkGraph         │  │  scene selector +      │ │
+│  │   Timeline             │  │  tick state +          │ │
+│  │   EventLog             │  │  player loop           │ │
+│  │   PeerDetail           │  └──────────┬─────────────┘ │
+│  └────────────────────────┘             │               │
+│                                         ▼               │
+│  ┌──────────────────────────────────────────────────┐   │
+│  │             src/sim/  (pure TS, no React)        │   │
+│  │                                                  │   │
+│  │   types.ts      domain types (Peer / Message)    │   │
+│  │   engine.ts     tick step + deterministic PRNG   │   │
+│  │                                                  │   │
+│  │   protocol/                                      │   │
+│  │     handshake.ts   stages 1-3                    │   │
+│  │     choking.ts     tit-for-tat + optimistic      │   │
+│  │     transfer.ts    request / piece / have        │   │
+│  │     piece-selection.ts  rarest-first             │   │
+│  │                                                  │   │
+│  │   scenarios/                                     │   │
+│  │     scenes.ts      6 scene definitions           │   │
+│  │     cold-start.ts  factory for full-flow         │   │
+│  └──────────────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────────┘
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### Key design decisions
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+| Decision | Why |
+|---|---|
+| **All client-side, deterministic** | `step(state, scenario) → newState + events` is a pure function. Given the same seed, every frame is reproducible — letting users scrub the timeline to any tick instantly. |
+| **Sim layer separate from UI** | `src/sim/` has zero React dependency. Engine is unit-tested in isolation (63 tests). UI just renders state snapshots. |
+| **Phase-driven, one stage per tick per conn** | Each directed connection advances at most one protocol stage per tick. Keeps animation pacing legible and the event stream readable. |
+| **`peerBitfield` stored per-conn** | A peer's knowledge of what others hold flows through `bitfield` and `have` messages, not by reading the global state — preserves the protocol's information topology. |
+| **Snapshot-based batch update** | Each phase reads tick-N state and writes a new tick-(N+1) state. No iteration-order dependence; deterministic and testable. |
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Protocol mechanics implemented
 
-## Learn More
+- Handshake / Bitfield / Interested exchange (`protocol/handshake.ts`)
+- Tit-for-tat choking with optimistic unchoke (`protocol/choking.ts`)
+  - Re-evaluate every 10 ticks; top-3 download contributors get unchoked
+  - Every 30 ticks, one additional random choked peer gets optimistic unchoke
+- Rarest-first piece selection (`protocol/piece-selection.ts`)
+  - Excludes pieces already in-flight to avoid duplicate requests
+- Piece request / response (`protocol/transfer.ts`)
+- `have` broadcast on piece completion
+- Seeder transition with automatic `not_interested` retraction
 
-To learn more about Next.js, take a look at the following resources:
+## Known simplifications
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+This is a teaching visualization, not a wire-compatible BitTorrent client:
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+- No Tracker / DHT protocol — peers are directly connected at scenario start
+- No real TCP / handshake byte format — "handshake" is a single tagged message
+- No piece hashing / verification
+- No pipelining or block-level granularity — request a piece, get a piece
+- Bitfield stored as `boolean[]`, not bit-packed
+- No endgame mode, fast-extension, μTP, or peer banning
+- No realistic bandwidth model — `uploadCapacity` shapes nothing concrete in this MVP
 
-## Deploy on Vercel
+## Tech stack
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+- **Next.js 16** + App Router (turbopack)
+- **React 19** + TypeScript (strict mode)
+- **Tailwind CSS 4**
+- **Vitest 4** (63 unit + integration tests covering all phases)
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Run locally
+
+```bash
+pnpm install
+pnpm dev          # localhost:3000
+pnpm test         # vitest watch mode
+pnpm test:run     # one-shot
+pnpm build        # static prerender, ready to deploy
+```
+
+## Deploy
+
+The site is a single static page (`next build` outputs `○ (Static) prerendered as static content`). Deploy anywhere that serves Next.js static output:
+
+**Vercel** (easiest):
+1. Push to GitHub
+2. Import the repo at [vercel.com/new](https://vercel.com/new)
+3. Default settings work — no env vars or build customization needed
+
+**GitHub Pages** / other static hosts: enable `output: 'export'` in `next.config.ts` and serve the `out/` directory.
+
+## Project status
+
+See [`progress/`](./progress/) for the full development log:
+
+- [`progress/README.md`](./progress/README.md) — dashboard + session log
+- [`progress/decisions/`](./progress/decisions/) — architecture decisions
