@@ -1,7 +1,7 @@
 # bt-vis Progress
 
 ## Current Focus
-**MVP 完整完成** ✅。Week 1-3 主要 Goals 全部达成。剩 Vercel 部署需要用户操作。
+**Story Mode 上线** ✅。项目从"看动画"重构为"第一人称走流程",用户作为 Me 节点 step-by-step 体验下载 → 完成 → 反向贡献的完整 P2P 闭环。MVP 完整完成。
 
 ## Goals
 
@@ -98,5 +98,15 @@
     - 静态 export 配置 + GitHub Actions workflow (build → test → deploy to Pages, 40s 全程)
     - 线上 URL: <https://smokingmouse.github.io/bt-vis/>
     - 浏览器实测线上 Full Flow tick 20: 4/6 seeders + 321 events 完整流转
-- Decisions: 全前端 TS sim engine + 5 段场景 + 全流程模式；2-3 周时间盒；垂直切片推进；用 GitHub Pages 而非 Vercel(免账户)
-- Next: 整个 MVP 项目完成。可选迭代: 增量场景(新节点动态加入)、异常鲁棒性(恶意 peer)、技术博客
+  - **Story Mode 重构** (用户反馈"太像动画, 需要交互"后):
+    - 新增第一人称叙事模式: 你=Me 节点, 14 步从"拿到 .torrent"走到"反向给 L4 贡献 piece"
+    - `src/sim/story/scenario.ts` + `steps.ts` + `ui/components/StoryPanel.tsx`
+    - 渐进 tick 动画 (400ms/tick), 看到 piece 实际流动而非跳跃
+    - Event log 只显示 Me 相关 (减 swarm 噪音)
+    - 模式切换: Story (默认) / Free Play (旧 6-scene)
+    - 协议 bug 修复: have broadcast 现在更新接收方 peerBitfield + 重置 interestExpressed,
+      让 not_interested 的 peer 在对方持有新 piece 时能重新 interested
+      (修前: L4 早期 not_interested Me, Me 后来 became seeder 也无法触发 L4 重新 interested)
+    - scenario 设计: L4 故意只连 Me+L1 (网络边缘), 让"Me 完成时 L4 还在挣扎"成立, 反向贡献戏剧性自然
+- Decisions: 全前端 TS sim engine + 5 段场景 + 全流程模式；2-3 周时间盒；垂直切片推进；用 GitHub Pages 而非 Vercel(免账户); Story Mode 为默认入口
+- Next: 整个 MVP 项目完成。可选迭代: 增量场景(新节点动态加入)、异常鲁棒性(恶意 peer)、Story Mode v2 (用户在 step 9 自己选 piece 看 rarest-first 反例)
