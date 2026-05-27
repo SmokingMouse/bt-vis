@@ -17,10 +17,11 @@
   - [x] 视觉打磨: 消息流动圆点 + edge 高亮 + 节点选中蓝圈
   - [x] PeerDetail 面板 (bitfield 大图 + 每条 connection 状态 + 接收 piece 计数)
   - [x] seeder→not_interested 自动撤回
-- [x] **Week 3**: README + 部署 — done (部署用户操作)
+- [x] **Week 3**: README + 部署 — done
   - [x] README.md 含架构图 + 设计决策 + 已知简化
-  - [x] Vercel 部署指南 (`output: 'export'` for GH Pages)
-  - [ ] 用户操作: push GitHub + Vercel import
+  - [x] next.config.ts 配 `output: 'export'` + `basePath` 用环境变量
+  - [x] `.github/workflows/deploy.yml` CI: pnpm test → build → GitHub Pages deploy
+  - [x] **线上部署完成**: <https://smokingmouse.github.io/bt-vis/>
 - [ ] **Week 2**: 5 段场景 + 全流程模式 + UI 打磨
   - [ ] Choking 算法（tit-for-tat + optimistic unchoke）
   - [ ] 5 段场景拆分：Discovery / Handshake / Selection / Choking / Seeding
@@ -92,5 +93,10 @@
   - **Week 3 完成**:
     - `README.md` — 项目目标 + 6 场景介绍 + 架构 ASCII 图 + 5 条设计决策 + 协议机制列表 + 已知简化 + 部署指南
     - Build 验证: `pnpm build` 静态 prerender 成功, 可直接 Vercel/GH Pages 部署
-- Decisions: 全前端 TS sim engine + 5 段场景 + 全流程模式；2-3 周时间盒；垂直切片推进
-- Next: 用户操作 — git init + push GitHub + Vercel import (link 出来后填回 README demo 链接)
+  - **部署完成**:
+    - GitHub repo: <https://github.com/SmokingMouse/bt-vis> (public)
+    - 静态 export 配置 + GitHub Actions workflow (build → test → deploy to Pages, 40s 全程)
+    - 线上 URL: <https://smokingmouse.github.io/bt-vis/>
+    - 浏览器实测线上 Full Flow tick 20: 4/6 seeders + 321 events 完整流转
+- Decisions: 全前端 TS sim engine + 5 段场景 + 全流程模式；2-3 周时间盒；垂直切片推进；用 GitHub Pages 而非 Vercel(免账户)
+- Next: 整个 MVP 项目完成。可选迭代: 增量场景(新节点动态加入)、异常鲁棒性(恶意 peer)、技术博客
