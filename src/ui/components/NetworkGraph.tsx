@@ -16,6 +16,10 @@ interface Props {
   recentMessages?: readonly MessageBlip[];
   selectedPeerId?: PeerId | null;
   onSelectPeer?: (peerId: PeerId | null) => void;
+  /** Story 模式: 高亮这些 peer (橙色 ring); 其他保持原状。 */
+  highlightPeerIds?: readonly PeerId[];
+  /** Story 模式开头: 只显示 highlightPeerIds 里的节点, 其他半透明隐藏。 */
+  hideOthers?: boolean;
 }
 
 const MSG_COLOR: Record<MessageType, string> = {
@@ -54,7 +58,10 @@ export function NetworkGraph({
   recentMessages = [],
   selectedPeerId = null,
   onSelectPeer,
+  highlightPeerIds,
+  hideOthers = false,
 }: Props) {
+  const highlightSet = new Set(highlightPeerIds ?? []);
   const peers = Object.values(state.peers);
   const n = peers.length;
   const cx = WIDTH / 2;
@@ -116,6 +123,9 @@ export function NetworkGraph({
     <svg viewBox={`0 0 ${WIDTH} ${HEIGHT}`} className="w-full h-full max-h-[70vh]">
       {edges.map((e) => {
         const isActive = activeEdges.has(`${e.from}-${e.to}`);
+        // hideOthers: 当 hideOthers=true 时, 只有"两端都在 highlight 里"的 edge 才正常显示, 否则 fade。
+        const edgeFaded =
+          hideOthers && !(highlightSet.has(e.from) && highlightSet.has(e.to));
         return (
           <line
             key={`${e.from}-${e.to}`}
@@ -125,6 +135,7 @@ export function NetworkGraph({
             y2={e.y2}
             stroke={isActive ? 'rgb(82 82 91)' : 'rgb(39 39 42)'}
             strokeWidth={isActive ? 1.5 : 1}
+            opacity={edgeFaded ? 0.1 : 1}
           />
         );
       })}
@@ -141,24 +152,29 @@ export function NetworkGraph({
         const total = peer.bitfield.length;
         const isSeeder = total > 0 && done === total;
         const isSelected = peer.id === selectedPeerId;
+        const isStoryHighlight = highlightSet.has(peer.id);
+        const nodeFaded = hideOthers && !isStoryHighlight;
         return (
           <g
             key={peer.id}
             transform={`translate(${x}, ${y})`}
             onClick={() => onSelectPeer?.(isSelected ? null : peer.id)}
             style={{ cursor: onSelectPeer ? 'pointer' : 'default' }}
+            opacity={nodeFaded ? 0.15 : 1}
           >
             <circle
-              r={NODE_RADIUS + (isSelected ? 4 : 0)}
+              r={NODE_RADIUS + (isSelected || isStoryHighlight ? 4 : 0)}
               fill={isSeeder ? 'rgb(34 197 94)' : 'rgb(39 39 42)'}
               stroke={
                 isSelected
-                  ? 'rgb(96 165 250)' // blue-400
-                  : isSeeder
-                    ? 'rgb(74 222 128)'
-                    : 'rgb(113 113 122)'
+                  ? 'rgb(96 165 250)' // blue-400 (peer detail 选中)
+                  : isStoryHighlight
+                    ? 'rgb(251 146 60)' // orange-400 (story 当前关注)
+                    : isSeeder
+                      ? 'rgb(74 222 128)'
+                      : 'rgb(113 113 122)'
               }
-              strokeWidth={isSelected ? 3 : 2}
+              strokeWidth={isSelected || isStoryHighlight ? 3 : 2}
             />
             <text
               textAnchor="middle"

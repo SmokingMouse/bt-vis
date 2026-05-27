@@ -172,11 +172,13 @@ describe('handshake — determinism preserved', () => {
 });
 
 describe('peerBitfield — protocol fidelity', () => {
-  it('peerBitfield is a deep copy, not a shared reference', () => {
-    const r = run(createInitialState(twoPeerScenario, 42), twoPeerScenario, 5);
+  it('peerBitfield is a separate array (not shared reference with peer.bitfield)', () => {
+    // 用 2-seeder 场景: bitfield 不会变, 排除 have broadcast 干扰
+    const r = run(createInitialState(twoSeederScenario, 42), twoSeederScenario, 3);
     const aToB = r.state.connections['A->B'];
+    expect(aToB.state.peerBitfield).not.toBe(r.state.peers.B.bitfield);
     // 改一下 peer B 的 bitfield, conn.peerBitfield 不应跟着变。
-    r.state.peers.B.bitfield[0] = true;
-    expect(aToB.state.peerBitfield![0]).toBe(false);
+    r.state.peers.B.bitfield[0] = false;
+    expect(aToB.state.peerBitfield![0]).toBe(true);
   });
 });

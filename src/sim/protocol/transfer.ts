@@ -191,16 +191,46 @@ export function stepTransferPhase(state: SimState, nextTick: number): TransferRe
       events.push({ tick: nextTick, kind: 'piece_completed', peerId, piece });
     }
 
-    // 向该 peer 的所有 outgoing conn 广播 have(对每个新 piece)。
+    // 向该 peer 的所有 outgoing conn 广播 have(对每个新 piece);
+    // 同时更新接收方的 peerBitfield 认知 + 允许接收方重新评估 interest。
     for (const key of Object.keys(mergedConns).sort()) {
       const c = mergedConns[key];
       if (c.from !== peerId) continue;
+      const reverseKey = connKey(c.to, c.from);
+      const reverseConn = mergedConns[reverseKey];
+      const toPeer = mergedPeers[c.to];
+
       for (const piece of newPieces) {
         events.push({
           tick: nextTick,
           kind: 'message',
           message: { type: 'have', from: peerId, to: c.to, piece },
         });
+
+        // 更新 reverseConn.peerBitfield (B 现在知道 A 多了 piece)
+        if (reverseConn.state.peerBitfield) {
+          const newPeerBf = [...reverseConn.state.peerBitfield];
+          newPeerBf[piece] = true;
+          mergedConns[reverseKey] = {
+            ...mergedConns[reverseKey],
+            state: { ...mergedConns[reverseKey].state, peerBitfield: newPeerBf },
+          };
+        }
+
+        // 如果 to(=B) 当前对 from(=A) not_interested, 但 B 实际缺这个 piece
+        // → reset interestExpressed 让 stage 3 重新评估
+        const reverseAfter = mergedConns[reverseKey];
+        if (
+          !reverseAfter.state.amInterested &&
+          reverseAfter.state.interestExpressed &&
+          toPeer &&
+          !toPeer.bitfield[piece]
+        ) {
+          mergedConns[reverseKey] = {
+            ...reverseAfter,
+            state: { ...reverseAfter.state, interestExpressed: false },
+          };
+        }
       }
     }
 
