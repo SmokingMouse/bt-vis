@@ -6,7 +6,7 @@ A deterministic browser-side simulation of BT's core mechanisms: handshake, bitf
 
 ## Demo
 
-🌐 **Live**: _(link here once deployed)_
+🌐 **Live**: <https://smokingmouse.github.io/bt-vis/>
 
 ## What it shows
 
